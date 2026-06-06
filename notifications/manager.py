@@ -36,6 +36,17 @@ def mark_all_read(user_id: int) -> bool:
     return True
 
 
+def mark_read_by_type(user_id: int, type: str) -> bool:
+    conn = get_connection()
+    conn.execute(
+        "UPDATE notifications SET is_read = 1 WHERE user_id = ? AND type = ? AND is_read = 0",
+        (user_id, type),
+    )
+    conn.commit()
+    conn.close()
+    return True
+
+
 def get_unread_count(user_id: int) -> int:
     conn = get_connection()
     row = conn.execute(

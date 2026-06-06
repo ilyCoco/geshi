@@ -17,9 +17,13 @@ from tasks import (
     TaskIntelligenceAgent,
 )
 from notifications import get_unread_count
+from notifications import mark_read_by_type
 from summary_system.llm_client import LLMClient
 
 user = st.session_state["user"]
+mark_read_by_type(user["id"], "task_assigned")
+mark_read_by_type(user["id"], "task_deadline")
+mark_read_by_type(user["id"], "task_completed")
 llm = LLMClient.from_env()
 agent = TaskIntelligenceAgent(llm)
 

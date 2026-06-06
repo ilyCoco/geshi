@@ -16,8 +16,12 @@ from messages import (
     get_unread_count,
 )
 from auth import get_all_users
+from notifications import mark_read_by_type
 
 user = st.session_state["user"]
+
+# 进入消息页面时，自动将所有 message_new 通知标为已读
+mark_read_by_type(user["id"], "message_new")
 
 st.title("💬 站内消息")
 

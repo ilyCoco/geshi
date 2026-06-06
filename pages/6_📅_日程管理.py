@@ -19,9 +19,11 @@ from scheduler import (
     get_events_for_month, get_upcoming_events, resolve_attendees,
     SchedulingAgent, ReportGenerationAgent,
 )
+from notifications import mark_read_by_type
 from summary_system.llm_client import LLMClient
 
 user = st.session_state["user"]
+mark_read_by_type(user["id"], "meeting_reminder")
 llm = LLMClient.from_env()
 sched_agent = SchedulingAgent(llm)
 report_agent = ReportGenerationAgent(llm)

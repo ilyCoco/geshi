@@ -84,7 +84,8 @@ def dashboard_page() -> None:
 
     from knowledge_base import get_recent_entries, get_categories
     from tasks import get_tasks_by_status
-    from notifications import get_unread_count, list_notifications
+    from notifications import get_unread_count as get_unread_notif_count, list_notifications
+    from messages import get_unread_count as get_unread_msg_count
     from scheduler import get_upcoming_events
     from assistant import PersonalAssistantAgent, NaturalQueryAgent
     from summary_system.llm_client import LLMClient
@@ -130,6 +131,10 @@ def dashboard_page() -> None:
             metric_card("今日日程", len(briefing["meetings_today"]), color="#0EA5E9")
         with mc3:
             metric_card("未读通知", briefing["notifications"]["unread_count"], color="#F59E0B")
+            if briefing["notifications"]["unread_count"] > 0:
+                if st.button("查看", key="view_notifs_top", use_container_width=True):
+                    st.session_state["show_notif_panel"] = True
+                    st.rerun()
         with mc4:
             metric_card("待审批", briefing["pending_approvals"], color="#10B981")
         with mc5:
@@ -138,6 +143,53 @@ def dashboard_page() -> None:
             metric_card("今日考勤", label, color="#8B5CF6")
 
         st.markdown('<div style="height:4px"></div>', unsafe_allow_html=True)
+
+        # ── Notification panel (shown when user clicks "查看") ──
+        if st.session_state.get("show_notif_panel"):
+            section_header("🔔 未读通知")
+            notif_list = list_notifications(user["id"], limit=10, unread_only=True)
+            if notif_list:
+                notif_type_page = {
+                    "task_assigned": "pages/4_✅_任务管理.py",
+                    "task_deadline": "pages/4_✅_任务管理.py",
+                    "task_completed": "pages/4_✅_任务管理.py",
+                    "approval_request": "pages/5_📋_审批管理.py",
+                    "approval_result": "pages/5_📋_审批管理.py",
+                    "message_new": "pages/9_💬_站内消息.py",
+                    "meeting_reminder": "pages/6_📅_日程管理.py",
+                    "system": None,
+                }
+                from notifications import mark_read as _mark_read
+                for n in notif_list:
+                    nc1, nc2 = st.columns([5, 1])
+                    with nc1:
+                        page = notif_type_page.get(n["type"])
+                        if page:
+                            if st.button(f"🔴 {n['title']}", key=f"notif_go_{n['id']}",
+                                         use_container_width=True):
+                                _mark_read(n["id"])
+                                st.switch_page(page)
+                        else:
+                            st.markdown(f"🔴 {n['title']}", unsafe_allow_html=True)
+                    with nc2:
+                        st.caption(n["created_at"][5:16])
+                from notifications import mark_all_read as _mark_all
+                bc1, bc2, _ = st.columns([1, 1, 4])
+                with bc1:
+                    if st.button("全部已读", key="notif_panel_mark"):
+                        _mark_all(user["id"])
+                        st.session_state["show_notif_panel"] = False
+                        st.rerun()
+                with bc2:
+                    if st.button("收起", key="notif_panel_hide"):
+                        st.session_state["show_notif_panel"] = False
+                        st.rerun()
+            else:
+                st.success("暂无未读通知")
+                if st.button("收起", key="notif_panel_hide_empty"):
+                    st.session_state["show_notif_panel"] = False
+                    st.rerun()
+            st.markdown('<hr>', unsafe_allow_html=True)
 
         # AI insights
         i1, i2 = st.columns([1, 1])
@@ -182,7 +234,7 @@ def dashboard_page() -> None:
         with w3:
             metric_card("已完成", len(tasks_map.get("completed", [])), color="#10B981")
         with w4:
-            metric_card("未读消息", get_unread_count(user["id"]), color="#8B5CF6")
+            metric_card("未读消息", get_unread_msg_count(user["id"]), color="#8B5CF6")
 
         # ── Urgent task previews ──
         urgent_tasks = [t for t in tasks_map.get("pending", []) if t.get("priority") == "high"]
@@ -294,17 +346,35 @@ def dashboard_page() -> None:
         # ── Notifications ──
         st.markdown('<hr>', unsafe_allow_html=True)
         section_header("🔔 最近通知")
-        notifs = list_notifications(user["id"], limit=4, unread_only=True)
+        notifs = list_notifications(user["id"], limit=8, unread_only=True)
         if notifs:
+            from notifications import mark_read as _sidebar_mark_read
+            sidebar_type_page = {
+                "task_assigned": "pages/4_✅_任务管理.py",
+                "task_deadline": "pages/4_✅_任务管理.py",
+                "task_completed": "pages/4_✅_任务管理.py",
+                "approval_request": "pages/5_📋_审批管理.py",
+                "approval_result": "pages/5_📋_审批管理.py",
+                "message_new": "pages/9_💬_站内消息.py",
+                "meeting_reminder": "pages/6_📅_日程管理.py",
+                "system": None,
+            }
             for n in notifs:
-                st.markdown(
-                    f'<div style="padding:5px 0;border-bottom:1px solid #F8FAFC">'
-                    f'<span class="geshi-dot-blue"></span>'
-                    f'<span style="font-size:.85em">{n["title"]}</span>'
-                    f'<span style="color:#94A3B8;font-size:.75em;float:right">{n["created_at"][5:16]}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
+                page = sidebar_type_page.get(n["type"])
+                if page:
+                    if st.button(f"🔴 {n['title']}", key=f"sb_notif_{n['id']}",
+                                 use_container_width=True):
+                        _sidebar_mark_read(n["id"])
+                        st.switch_page(page)
+                else:
+                    st.markdown(
+                        f'<div style="padding:5px 0;border-bottom:1px solid #F8FAFC">'
+                        f'<span class="geshi-dot-blue"></span>'
+                        f'<span style="font-size:.85em">{n["title"]}</span>'
+                        f'<span style="color:#94A3B8;font-size:.75em;float:right">{n["created_at"][5:16]}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
             if st.button("全部标为已读", key="mark_all"):
                 from notifications import mark_all_read
                 mark_all_read(user["id"])

@@ -15,9 +15,12 @@ from approvals import (
     create_approval, approve, reject, cancel, get_approval,
     list_approvals, parse_approval_chain, ApprovalReviewAgent,
 )
+from notifications import mark_read_by_type
 from summary_system.llm_client import LLMClient
 
 user = st.session_state["user"]
+mark_read_by_type(user["id"], "approval_request")
+mark_read_by_type(user["id"], "approval_result")
 llm = LLMClient.from_env()
 review_agent = ApprovalReviewAgent(llm)
 
